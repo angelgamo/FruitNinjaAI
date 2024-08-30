@@ -1,10 +1,9 @@
 import cv2 as cv
-import mss
 import numpy as np
-import pyautogui
 import time
+from windows_capture import WindowsCapture, Frame, InternalCaptureControl
 
-w, h = pyautogui.size()
+w, h = 1920, 1080
 img = None
 t0 = time.time()
 n_frames = 1
@@ -35,48 +34,46 @@ def draw_rect(event, x, y, flags, param):
         if drawing:
             fx, fy = x, y
 
-cv.namedWindow("Computer Vision")
-cv.setMouseCallback("Computer Vision", draw_rect)
+capture = WindowsCapture(
+    cursor_capture=None,
+    draw_border=None,
+    monitor_index=None,
+    window_name=None,
+)
 
-with mss.mss() as sct:
-    img = sct.grab(monitor)
-    img = np.array(img)
-    small = cv.resize(img, (0, 0), fx=0.5, fy=0.5)
-    rectangle = small.copy()
+@capture.event
+def on_frame_arrived(frame: Frame, capture_control: InternalCaptureControl):
+    global img, region, drawing, ix, iy, fx, fy, n_frames, t0, monitor
 
-    while not region:
+    img = np.array(frame.frame_buffer)
+
+    if not region:
+        small = cv.resize(img, (0, 0), fx=0.5, fy=0.5)
         rectangle = small.copy()
         cv.rectangle(rectangle, (ix, iy), (fx, fy), (0, 255, 0), 1)
         cv.imshow("Computer Vision", rectangle)
-
-        # Break loop and end test
-        key = cv.waitKey(1)
-        if key == ord('q'):
-            break
-
-        elapsed_time = time.time() - t0
-        avg_fps = (n_frames / elapsed_time)
-        print("Average FPS: " + str(avg_fps))
-        n_frames += 1
-
-    t0 = time.time()
-    n_frames = 1
-
-    while True:
-        img = sct.grab(monitor)
-        img = np.array(img)
-        
+    else:
+        x0, y0, x1, y1 = monitor['left'],monitor['top'], monitor['left']+monitor['width'],monitor['top']+monitor['height']
+        img = img[y0:y1, x0:x1]
         small = cv.resize(img, (0, 0), fx=0.5, fy=0.5)
         cv.imshow("Computer Vision", small)
 
-        # Break loop and end test
-        key = cv.waitKey(1)
-        if key == ord('q'):
-            break
-        
-        elapsed_time = time.time() - t0
-        avg_fps = (n_frames / elapsed_time)
-        print("Average FPS: " + str(avg_fps))
-        n_frames += 1
+    key = cv.waitKey(1)
+    if key == ord('q'):
+        capture_control.stop()
 
-print(monitor)
+    elapsed_time = time.time() - t0
+    avg_fps = (n_frames / elapsed_time)
+    print("Average FPS: " + str(avg_fps))
+    n_frames += 1
+
+@capture.event
+def on_closed():
+    print("Capture Session Closed")
+    cv2.destroyAllWindows()
+
+cv.namedWindow("Computer Vision")
+cv.setMouseCallback("Computer Vision", draw_rect)
+capture.start()
+
+print(img.shape)
