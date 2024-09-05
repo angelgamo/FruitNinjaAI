@@ -59,6 +59,9 @@ with mss.mss() as sct:
         print("Average FPS: " + str(avg_fps))
         n_frames += 1
 
+    t0 = time.time()
+    n_frames = 1
+
     while True:
         img = sct.grab(monitor)
         img = np.array(img)
@@ -75,3 +78,6 @@ with mss.mss() as sct:
         avg_fps = (n_frames / elapsed_time)
         print("Average FPS: " + str(avg_fps))
         n_frames += 1
+
+
+print(monitor)
